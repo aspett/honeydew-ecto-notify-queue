@@ -1,0 +1,338 @@
+defmodule HoneydewEctoNotifyQueue do
+  @moduledoc """
+  This is a FIFO ecto database implementation of the honeydew queue
+  Started with `Honeydew.queue_spec/2`.
+  """
+  @behaviour Honeydew.Queue
+
+  import Ecto.Query, only: [from: 2]
+
+  alias HoneydewEctoNotifyQueue.{ Job, JobConfig }
+  require Logger
+
+  @config_channel "job_configs"
+  @jobs_channel "jobs"
+
+  defmodule QState do
+    defstruct [:repo, :queue_name, :max_job_time, :retry_seconds, :config_notification_ref, :jobs_notification_ref, :database_suspended]
+  end
+
+  @impl true
+  def init(queue_name, repo: repo, max_job_time: max_job_time, retry_seconds: retry_seconds, notifier: notifier) do
+    {:ok, config_notification_ref} = start_config_notifier(notifier)
+    {:ok, jobs_notification_ref}   = start_jobs_notifier(notifier)
+
+    state = %QState{
+      repo: repo,
+      queue_name: queue_name,
+      max_job_time: max_job_time,
+      retry_seconds: retry_seconds,
+      config_notification_ref: config_notification_ref,
+      jobs_notification_ref: jobs_notification_ref
+    }
+
+    state = refresh_config(state)
+
+    {:ok, state}
+  end
+
+  defp start_config_notifier(notifier) do
+    pid = Process.whereis(notifier)
+    Postgrex.Notifications.listen(pid, @config_channel)
+  end
+
+  defp start_jobs_notifier(notifier) do
+    pid = Process.whereis(notifier)
+    Postgrex.Notifications.listen(pid, @jobs_channel)
+  end
+
+  @impl true
+  @doc "Adds a job to the jobs table"
+  def enqueue(job, state) do
+    debug_log("ENQUEUE")
+
+    attrs = serialize(job, state)
+
+    db_job = Job.changeset(%Job{}, attrs)
+    db_job = state.repo.insert!(db_job)
+
+    {state, %{ job | private: db_job.id }}
+  end
+
+  @impl true
+  @doc """
+  Will retrieve the first job which is unreserved, or was reserved but considered stale
+  A job is assumed stale when it is still in the jobs table after the specified max job time
+  """
+  def reserve(%QState{database_suspended: true} = state) do
+    debug_log("RESERVE attempted; but queue suspended")
+    {:empty, state}
+  end
+
+  def reserve(state) do
+    debug_log("RESERVE")
+    now = DateTime.utc_now()
+
+    query =
+      from j in Job,
+      where: is_nil(j.reserved_at) or fragment("EXTRACT(EPOCH FROM (? - ?))", ^now, j.reserved_at) >= ^state.max_job_time,
+      where: is_nil(j.acked_at),
+      where: is_nil(j.nacked_until) or j.nacked_until <= ^now,
+      where: j.queue == ^to_string(state.queue_name),
+      limit: 1,
+      order_by: [asc: j.inserted_at],
+      lock: "FOR UPDATE NOWAIT"
+
+    {:ok, job} = state.repo.transaction fn ->
+      case state.repo.one(query) do
+        nil -> nil
+        job ->
+          job =
+            job
+            |> Job.changeset(%{reserved_at: DateTime.utc_now()})
+            |> state.repo.update!()
+
+          job
+      end
+    end
+
+    case job do
+      nil -> {:empty, state}
+      job ->
+        job = deserialize(job)
+        debug_log("Picking up job: " <> inspect(job))
+
+        {job, state}
+    end
+
+  rescue
+    error ->
+      Logger.error(inspect(error))
+      nil
+  end
+
+  #
+  # Ack/Nack
+  #
+
+  @impl true
+  @doc """
+  Acknowledges the completion of the job, deleting it from the jobs table
+  """
+  def ack(%Honeydew.Job{private: id, failure_private: failure}, state) do
+    debug_log("ACK JOB")
+    state.repo.transaction fn ->
+      query = from j in Job,
+        where: j.id == ^id,
+        where: j.queue == ^to_string(state.queue_name),
+        limit: 1,
+        lock: "FOR UPDATE"
+
+      job = state.repo.one(query)
+
+      updates = %{acked_at: DateTime.utc_now(), reserved_at: nil}
+
+      updates = case failure do
+        %{abandoned_at: abandoned_at} ->
+          Map.merge(updates, %{abandoned_at: abandoned_at})
+        _ ->
+          updates
+      end
+
+      job = Job.changeset(job, updates)
+      state.repo.update!(job)
+    end
+
+    state
+  end
+
+  @impl true
+  @doc """
+  Acknowledges a failure of the job, unreserving the job and allowing it to be picked up again
+  """
+  def nack(%Honeydew.Job{private: id} = job, state) do
+    debug_log("NACK JOB")
+    self_pid = self()
+
+    state.repo.transaction fn ->
+      query = from j in Job,
+        where: j.id == ^id,
+        where: j.queue == ^to_string(state.queue_name),
+        limit: 1,
+        lock: "FOR UPDATE"
+
+      state.repo.one!(query)
+      |> Job.changeset(%{reserved_at: nil, failure_state: %{state: job.failure_private}, nacked_until: nack_time(state)})
+      |> state.repo.update!()
+
+      Process.send_after(self_pid, :retry_available, state.retry_seconds * 1_000)
+    end
+
+    state
+  end
+
+  defp nack_time(state) do
+    now = DateTime.to_unix(DateTime.utc_now())
+    now = now + state.retry_seconds
+    DateTime.from_unix!(now)
+  end
+
+  #
+  # Helpers
+  #
+
+  @impl true
+  @doc """
+  Retrieves the total number of jobs, and the in progress number of jobs
+  """
+  def status(state) do
+    query = "SELECT COUNT(*), COUNT(reserved_at) FROM jobs WHERE acked_at IS NULL AND queue = $1"
+    %{rows: [[count, in_progress]]} = Ecto.Adapters.SQL.query!(state.repo, query, [to_string(state.queue_name)])
+    %{count: count, in_progress: in_progress}
+  end
+
+  @impl true
+  def filter(state, function) do
+    query =
+      from j in Job,
+      where: is_nil(j.acked_at),
+      where: j.queue == ^to_string(state.queue_name)
+
+    state.repo.all(query)
+    |> Stream.map(&deserialize/1)
+    |> Enum.filter(function)
+  end
+
+  @impl true
+  def cancel(%Honeydew.Job{private: id} = job, state) do
+    query =
+      from j in Job,
+      where: j.id == ^id,
+      where: is_nil(j.acked_at),
+      limit: 1
+
+    reply = case state.repo.one(query) do
+      nil ->
+        {:error, :not_found}
+      %Job{reserved_at: nil} ->
+        ack(job, state)
+        :ok
+      %Job{} ->
+        {:error, :in_progress}
+    end
+
+    {reply, state}
+  end
+
+  @impl true
+  def handle_info({:notification, _connection_pid, _ref, @config_channel, _payload}, %{private: private_state} = state) do
+    debug_log("Job config updates, reloading config")
+    refreshed_state = refresh_config(private_state)
+    state = %{state | private: refreshed_state}
+    {:noreply, state}
+  end
+
+  def handle_info({:notification, _connection_pid, _ref, @jobs_channel, _payload}, state) do
+    debug_log("Notified of new job, poking the queue")
+    poke_queue(state)
+    {:noreply, state}
+  end
+
+  def handle_info(msg, state) when msg in [:retry_available, :run_now] do
+    poke_queue(state)
+    {:noreply, state}
+  end
+
+  def handle_info({:ping, pid}, state) do
+    send pid, :pong
+    {:noreply, state}
+  end
+
+  def handle_info(msg, state) do
+    Logger.warn "[Honeydew] Queue #{inspect self()} received unexpected message #{inspect msg}"
+    {:noreply, state}
+  end
+
+  defp serialize(%Honeydew.Job{from: from} = job, state) do
+    {function, arguments} = job.task
+
+    from = case from do
+      nil ->
+        nil
+
+      {pid, ref} ->
+        %{
+          pid: to_string(:erlang.pid_to_list(pid)),
+          ref: to_string(:erlang.ref_to_list(ref))
+        }
+    end
+
+    %{
+      queue: Atom.to_string(state.queue_name),
+      function: Atom.to_string(function),
+      arguments: %{args: arguments},
+      failure_state: %{state: nil},
+      queue_info: %{
+        from: from
+      }
+    }
+  end
+
+  defp deserialize(%Job{queue_info: %{from: from}} = job) do
+    from = case from do
+      nil ->
+        nil
+      %{"pid" => pid, "ref" => ref} ->
+        pid =
+          pid
+          |> to_charlist()
+          |> :erlang.list_to_pid()
+
+        ref =
+          ref
+          |> to_charlist()
+          |> :erlang.list_to_ref()
+
+        {pid, ref}
+    end
+
+    {nil, job.id, job.failure_state["state"], {String.to_atom(job.function), job.arguments["args"]}, from, nil, nil, String.to_atom(job.queue), nil, job.inserted_at, nil, nil}
+    |> Honeydew.Job.from_record()
+  end
+
+  defp debug_log(msg) do
+    Logger.debug("[Job Queue] " <> msg)
+  end
+
+  defp refresh_config(state) do
+    {:ok, suspended} = state.repo.transaction fn ->
+      suspended_query =
+        from jc in JobConfig,
+        where: jc.key == ^JobConfig.suspended_key()
+
+      suspended = state.repo.one!(suspended_query)
+      suspended = suspended.value == "true"
+
+      case suspended do
+        true  ->
+          debug_log("Synchronised queue status to suspended")
+          Honeydew.suspend(state.queue_name)
+        false ->
+          debug_log("Synchronised queue status to resumed")
+          Honeydew.resume(state.queue_name)
+      end
+
+      suspended
+    end
+
+    put_in(state, [Access.key(:database_suspended)], suspended)
+  end
+
+  defp poke_queue(%{suspended: false, private: state}) do
+    debug_log("Poking queue: #{state.queue_name}")
+    Honeydew.suspend(state.queue_name)
+    Honeydew.resume(state.queue_name)
+  end
+
+  defp poke_queue(_), do: :ok
+end
