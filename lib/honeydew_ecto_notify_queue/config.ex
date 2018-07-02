@@ -84,7 +84,7 @@ defmodule HoneydewEctoNotifyQueue.Config do
       {:ok, %JobConfig{}}
   """
   @spec delete_config(Repo.t(), JobConfig.t()) :: {:ok, JobConfig.t()} | {:error, any}
-  def delete_config(repo, config) do
+  def delete_config(repo, %JobConfig{} = config) do
     repo.delete(config)
   end
 

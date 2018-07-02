@@ -7,7 +7,6 @@ defmodule HoneydewEctoNotifyQueue do
   @behaviour Honeydew.Queue
 
   import Ecto.Query, only: [from: 2]
-  import Access, only: [key: 1]
 
   require Logger
 

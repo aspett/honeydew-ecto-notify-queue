@@ -1,5 +1,7 @@
 # HoneydewEctoNotifyQueue
 
+[![Build Status](https://travis-ci.org/aspett/honeydew-ecto-notify-queue.svg?branch=master)](https://travis-ci.org/aspett/honeydew-ecto-notify-queue)
+
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
@@ -23,6 +25,8 @@ the queue of jobs, and managing configuration over multiple instances;
 A `jobs` table tracks jobs and `job_configs` table tracks configurations.
 
 ## Notes
+
+**`Honeydew.yield` is not supported by this adapter.**
 
 Jobs are reserved using postgres' `FOR UPDATE NOWAIT` locking.
 
