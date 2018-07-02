@@ -9,6 +9,9 @@
     - [Description](#description)
     - [Notes](#notes)
     - [Setting it up](#setting-it-up)
+        - [Installing](#installing)
+        - [Generating the postgres migration](#generating-the-postgres-migration)
+        - [Starting the queue](#starting-the-queue)
     - [Running the tests](#running-the-tests)
     - [Custom job configuration persistence](#custom-job-configuration-persistence)
 
@@ -39,6 +42,31 @@ It is possible to suspend _all_ job processing across instances by updating the 
 See more about configuration handling [here](#custom-job-configuration-persistence)
 
 ## Setting it up
+
+### Installing
+The package is available on hex.pm [here.](https://hex.pm/packages/honeydew_ecto_notify_queue)
+
+You can add it to your mix.exs,
+
+```elixir
+defp deps do
+  [
+    # ..,
+    {:honeydew, "~> 1.1.5"},
+    {:honeydew_ecto_notify_queue, "~> 0.1"}
+  ]
+end
+```
+
+### Generating the postgres migration
+
+You can generate a migration to set up the required db tables with
+
+```bash
+$ mix honeydew_ecto_notify_queue.db.gen.migration
+```
+
+### Starting the queue
 
 Note: You should read [how to install honeydew here first](https://github.com/koudelka/honeydew)
 
