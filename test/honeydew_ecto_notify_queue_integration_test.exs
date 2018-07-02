@@ -92,14 +92,6 @@ defmodule HoneydewEctoNotifyQueueIntegrationTest do
     assert_receive "hi", @receive_timeout
   end
 
-  test "yield/2", %{queue: queue} do
-    first_job = {:return, ["hi"]} |> Honeydew.async(queue, reply: true)
-    second_job = {:return, ["there"]} |> Honeydew.async(queue, reply: true)
-
-    assert {:ok, "hi"} = Honeydew.yield(first_job)
-    assert {:ok, "there"} = Honeydew.yield(second_job)
-  end
-
   test "suspend/1", %{queue: queue} do
     Honeydew.suspend(queue)
     {:send_msg, [self_pid(), "hi"]} |> Honeydew.async(queue)

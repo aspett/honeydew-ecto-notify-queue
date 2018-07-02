@@ -8,7 +8,6 @@ defmodule <%= module_prefix %>.Repo.Migrations.CreateHoneydewEctoNotifyTables do
       add :function, :string
       add :arguments, :jsonb
       add :failure_state, :jsonb
-      add :queue_info, :jsonb
       add :reserved_at, :naive_datetime
       add :nacked_until, :naive_datetime
       add :acked_at, :naive_datetime

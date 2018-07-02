@@ -8,7 +8,6 @@ defmodule HoneydewEctoNotifyQueue.Repo.Migrations.CreateHoneydewEctoNotifyTables
       add :function, :string
       add :arguments, :jsonb
       add :failure_state, :jsonb
-      add :queue_info, :jsonb
       add :reserved_at, :naive_datetime
       add :nacked_until, :naive_datetime
       add :acked_at, :naive_datetime

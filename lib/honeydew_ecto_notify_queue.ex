@@ -318,55 +318,21 @@ defmodule HoneydewEctoNotifyQueue do
     {:noreply, state}
   end
 
-  defp serialize(%Honeydew.Job{from: from} = job, %QState{queue_name: queue_name}) do
+  defp serialize(%Honeydew.Job{} = job, %QState{queue_name: queue_name}) do
     {function, arguments} = job.task
-
-    from =
-      case from do
-        nil ->
-          nil
-
-        {pid, ref} ->
-          %{
-            pid: to_string(:erlang.pid_to_list(pid)),
-            ref: to_string(:erlang.ref_to_list(ref))
-          }
-      end
 
     %{
       queue: Atom.to_string(queue_name),
       function: Atom.to_string(function),
       arguments: %{args: arguments},
-      failure_state: %{state: nil},
-      queue_info: %{
-        from: from
-      }
+      failure_state: %{state: nil}
     }
   end
 
-  defp deserialize(%Job{queue_info: %{from: from}} = job) do
-    from =
-      case from do
-        nil ->
-          nil
-
-        %{"pid" => pid, "ref" => ref} ->
-          pid =
-            pid
-            |> to_charlist()
-            |> :erlang.list_to_pid()
-
-          ref =
-            ref
-            |> to_charlist()
-            |> :erlang.list_to_ref()
-
-          {pid, ref}
-      end
-
+  defp deserialize(%Job{} = job) do
     # nil, private, failure_private, task, from, result, by, queue, monitor, enqueued_at, started_at, completed_at
     {nil, job.id, job.failure_state["state"],
-     {String.to_atom(job.function), job.arguments["args"]}, from, nil, nil,
+     {String.to_atom(job.function), job.arguments["args"]}, nil, nil, nil,
      String.to_atom(job.queue), nil, job.inserted_at, nil, nil}
     |> Honeydew.Job.from_record()
   end
