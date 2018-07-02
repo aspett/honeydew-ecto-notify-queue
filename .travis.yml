@@ -1,0 +1,26 @@
+language: elixir
+elixir:
+  - 1.5.1
+  - 1.6.1
+otp_release:
+  - 19.1
+  - 19.3
+  - 20.0
+
+services:
+  - postgresql
+
+addons:
+  postgresql: "9.5"
+
+cache:
+  directories:
+    - _build
+    - deps
+
+before_script:
+  - MIX_ENV=test mix compile --warnings-as-errors
+  - MIX_ENV=test mix do ecto.create, ecto.migrate
+
+script:
+  - mix test
