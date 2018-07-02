@@ -1,26 +1,92 @@
 # HoneydewEctoNotifyQueue
 
-**TODO: Add description**
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
 
-- Make sure acking works with other failure modes
-- Create a framework around job configs to allow custom configs
-- See if queue poking necessary anymore, as it's pretty horrid
-- Tidy up and document
+- [HoneydewEctoNotifyQueue](#honeydewectonotifyqueue)
+    - [Description](#description)
+    - [Notes](#notes)
+    - [Setting it up](#setting-it-up)
+    - [Running the tests](#running-the-tests)
+    - [Custom job configuration persistence](#custom-job-configuration-persistence)
 
-## Installation
+<!-- markdown-toc end -->
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `honeydew_ecto_notify_queue` to your list of dependencies in `mix.exs`:
+## Description
+
+HoneydewEctoNotifyQueue is a queue built for [Honeydew](https://github.com/koudelka/honeydew) that uses postgres notifications
+instead of polling. It was originally built before honeydew offered the ecto polling solution.
+
+Contrary to the honeydew ecto polling solution, this package sets up two independent tables for managing
+the queue of jobs, and managing configuration over multiple instances;
+
+A `jobs` table tracks jobs and `job_configs` table tracks configurations.
+
+## Notes
+
+Jobs are reserved using postgres' `FOR UPDATE NOWAIT` locking.
+
+It is possible to suspend _all_ job processing across instances by updating the `suspended` job config;
 
 ```elixir
-def deps do
+{:ok, _config} = HoneydewEctoNotifyQueue.Config.update_config(MyApp.Repo, "suspended", "true")
+```
+
+See more about configuration handling [here](#custom-job-configuration-persistence)
+
+## Setting it up
+
+Note: You should read [how to install honeydew here first](https://github.com/koudelka/honeydew)
+
+This queue takes some additional options. An example below,
+
+```elixir
+import Supervisor.Spec
+
+def background_job_processes do
   [
-    {:honeydew_ecto_notify_queue, "~> 0.1.0"}
+    notifier_process(),
+    Honeydew.queue_spec(:process, # queue_name
+      queue: {HoneydewEctoNotifyQueue, [
+                  repo: YourApp.Repo, # your app's Repo module
+                  max_job_time: 3_600, # seconds
+                  retry_seconds: 15, # seconds,
+                  notifier: YourApp.Notifier # this should match the `name:` in `notifier_process` below
+                ]},
+      failure_mode: {Honeydew.FailureMode.Retry, times: 3}
+    ),
+    Honeydew.worker_spec(:process, Blog.Worker, num: 1)
   ]
+end
+
+def notifier_process do
+  worker(Postgrex.Notifications, [YourApp.Repo.config() ++ [name: YourApp.Notifier]])
+end
+
+def start(_type, _args) do
+  children = [
+    # ... The rest of your app's supervision tree
+  ] ++ background_job_processes
+  
+  Supervisor.start_link(children, opts)
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/honeydew_ecto_notify_queue](https://hexdocs.pm/honeydew_ecto_notify_queue).
+## Running the tests
 
+```bash
+$ MIX_ENV=test mix do ecto.create, ecto.migrate
+$ mix test
+```
+
+## Custom job configuration persistence
+This queue also adds support for persisting job configuration state via postgres.
+By default, this is how queue suspension is managed across multiple instances.
+
+You can leverage the existing notification setup to synchronise other configurations
+across instances.
+
+An example of this may be the disabling of automatic queuing of a job when an API is hit.
+
+You can see an example of how to listen for configuration changes in 
+`examples/configuration_listener.ex`
