@@ -1,6 +1,8 @@
 defmodule ConfigurationListener do
   use GenServer
 
+  require Logger
+
   @config_channel HoneydewEctoNotifyQueue.config_channel()
 
   defmodule State do
@@ -13,7 +15,7 @@ defmodule ConfigurationListener do
     {:ok, %{notification_ref: ref}}
   end
 
-  def handle_info({:notification, _connection_pid, ref, @config_channel, _payload}, %{notification_ref: ref}) do
+  def handle_info({:notification, _connection_pid, ref, @config_channel, _payload}, %{notification_ref: ref} = state) do
     {:ok, config} = HoneydewEctoNotifyQueue.Config.get_config("suspended")
     Logger.debug("Synchronised suspended configuration =" <> config.value)
 

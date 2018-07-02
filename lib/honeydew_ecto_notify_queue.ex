@@ -137,7 +137,7 @@ defmodule HoneydewEctoNotifyQueue do
   rescue
     error ->
       Logger.error(inspect(error))
-      nil
+      {:empty, state}
   end
 
   #

@@ -59,7 +59,7 @@ def background_job_processes do
                 ]},
       failure_mode: {Honeydew.FailureMode.Retry, times: 3}
     ),
-    Honeydew.worker_spec(:process, Blog.Worker, num: 1)
+    Honeydew.worker_spec(:process, YourApp.Worker, num: 1)
   ]
 end
 
