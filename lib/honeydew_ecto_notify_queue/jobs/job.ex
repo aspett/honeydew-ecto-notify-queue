@@ -1,4 +1,6 @@
 defmodule HoneydewEctoNotifyQueue.Job do
+  @moduledoc "Representation of a job"
+
   use Ecto.Schema
   import Ecto.Changeset
 

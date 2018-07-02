@@ -1,11 +1,15 @@
 defmodule HoneydewEctoNotifyQueue.JobConfig do
+  @moduledoc "Representation of a configuration"
+
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :binary_id, autogenerate: true}
   schema "job_configs" do
-    field :key, :string
-    field :value, :string
+    field(:key, :string)
+    field(:value, :string)
 
     timestamps()
   end
