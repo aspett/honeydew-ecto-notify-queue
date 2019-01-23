@@ -13,7 +13,8 @@ defmodule HoneydewEctoNotifyQueue.MixProject do
       docs: docs(),
       package: package(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      description: "Ecto postgres notifications-based queue for Honeydew"
+      description: "Ecto postgres notifications-based queue for Honeydew",
+      aliases: aliases()
     ]
   end
 
