@@ -32,10 +32,12 @@ defmodule HoneydewEctoNotifyQueue.MixProject do
   defp deps do
     [
       {:ex_doc, ">= 0.0.0", only: :dev},
-      {:ecto, "~> 2.2"},
-      {:postgrex, "~> 0.13"},
+      {:ecto, "~> 3.0", override: true},
+      {:ecto_sql, "~> 3.0"},
+      {:postgrex, "~> 0.14"},
       {:poison, "~> 3.1"},
-      {:honeydew, "~> 1.1.5"}
+      {:honeydew, "~> 1.1.5"},
+      {:jason, "~> 1.1"},
     ]
   end
 
