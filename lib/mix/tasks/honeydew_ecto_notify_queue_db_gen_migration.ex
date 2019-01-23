@@ -21,7 +21,7 @@ defmodule Mix.Tasks.HoneydewEctoNotifyQueue.Db.Gen.Migration do
 
     Enum.each(repos, fn repo ->
       ensure_repo(repo, args)
-      path = migrations_path(repo)
+      path = Ecto.Migrator.migrations_path(repo)
 
       source_path =
         :honeydew_ecto_notify_queue
