@@ -54,4 +54,10 @@ defmodule HoneydewEctoNotifyQueue.MixProject do
      main: "readme",
      source_ref: @version]
   end
+
+  defp aliases do
+    [
+      test: ["ecto.create --quiet", "ecto.migrate", "test"]
+    ]
+  end
 end

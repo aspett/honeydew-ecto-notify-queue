@@ -1,0 +1,23 @@
+version: '3.0'
+services:
+  test:
+    build: .
+    volumes:
+      - .:/opt/app
+      - elixir-build:/opt/app/_build
+      - /opt/app/deps
+    depends_on:
+      - database
+    environment:
+      DATABASE_URL: postgres://postgres:@172.17.0.1/test
+
+  database:
+    image: postgres:9.5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+
+volumes:
+  elixir-build: {}
+  postgresql-data: {}
