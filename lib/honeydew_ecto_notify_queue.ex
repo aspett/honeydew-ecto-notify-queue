@@ -28,20 +28,25 @@ defmodule HoneydewEctoNotifyQueue do
       :retry_seconds,
       :config_notification_ref,
       :jobs_notification_ref,
-      :database_suspended
+      :database_suspended,
+      :quiet_locking_errors
     ]
   end
 
   @impl true
   def init(
         queue_name,
-        repo: repo,
-        max_job_time: max_job_time,
-        retry_seconds: retry_seconds,
-        notifier: notifier
+        [
+          repo: repo,
+          max_job_time: max_job_time,
+          retry_seconds: retry_seconds,
+          notifier: notifier
+        ] = opts
       ) do
     {:ok, config_notification_ref} = start_config_notifier(notifier)
     {:ok, jobs_notification_ref} = start_jobs_notifier(notifier)
+
+    quiet_locking_errors = Keyword.get(opts, :quiet_locking_errors, true)
 
     state = %QState{
       repo: repo,
@@ -50,6 +55,7 @@ defmodule HoneydewEctoNotifyQueue do
       retry_seconds: retry_seconds,
       config_notification_ref: config_notification_ref,
       jobs_notification_ref: jobs_notification_ref,
+      quiet_locking_errors: quiet_locking_errors
     }
 
     state = refresh_config(state)
@@ -136,7 +142,14 @@ defmodule HoneydewEctoNotifyQueue do
     end
   rescue
     error ->
-      Logger.error(inspect(error))
+      case error do
+        %Postgrex.Error{postgres: %{code: :lock_not_available}} ->
+          unless state.quiet_locking_errors, do: Logger.error(inspect(error))
+
+        _ ->
+          Logger.error(inspect(error))
+      end
+
       {:empty, state}
   end
 
@@ -338,8 +351,9 @@ defmodule HoneydewEctoNotifyQueue do
   end
 
   defp refresh_config(state) do
-    with {:ok, config} <- HoneydewEctoNotifyQueue.Config.get_config(state.repo, JobConfig.suspended_key) do
-      suspended = (config.value == "true")
+    with {:ok, config} <-
+           HoneydewEctoNotifyQueue.Config.get_config(state.repo, JobConfig.suspended_key()) do
+      suspended = config.value == "true"
 
       case suspended do
         true ->
@@ -354,7 +368,13 @@ defmodule HoneydewEctoNotifyQueue do
       Map.put(state, :database_suspended, suspended)
     else
       error ->
-        Logger.warn(fn -> ["[HoneydewEctoNotifyQueue] There was an error fetching the 'suspended' job configuration", inspect(error)] end)
+        Logger.warn(fn ->
+          [
+            "[HoneydewEctoNotifyQueue] There was an error fetching the 'suspended' job configuration",
+            inspect(error)
+          ]
+        end)
+
         state
     end
   end
