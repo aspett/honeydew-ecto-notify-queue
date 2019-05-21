@@ -10,10 +10,10 @@ defmodule HoneydewEctoNotifyQueue.Job do
     field :function, :string
     field :arguments, :map
     field :failure_state, :map
-    field :reserved_at, :naive_datetime
-    field :acked_at, :naive_datetime
-    field :abandoned_at, :naive_datetime
-    field :nacked_until, :naive_datetime
+    field :reserved_at, :utc_datetime_usec
+    field :acked_at, :utc_datetime_usec
+    field :abandoned_at, :utc_datetime_usec
+    field :nacked_until, :utc_datetime_usec
 
     timestamps()
   end

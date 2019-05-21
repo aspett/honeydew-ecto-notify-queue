@@ -55,7 +55,8 @@ defmodule HoneydewEctoNotifyQueue.Config do
       iex> update_config(Repo, "queueing_mode", "manual")
       {:ok, %JobConfig{}}
   """
-  @spec update_config(Repo.t(), JobConfig.t() | String.t(), String.t()) :: {:ok, JobConfig.t()} | {:error, any}
+  @spec update_config(Repo.t(), JobConfig.t() | String.t(), String.t()) ::
+          {:ok, JobConfig.t()} | {:error, any}
   def update_config(repo, %JobConfig{} = config, value) when is_binary(value) do
     config
     |> JobConfig.changeset(%{value: value})
