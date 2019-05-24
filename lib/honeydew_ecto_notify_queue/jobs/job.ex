@@ -15,7 +15,7 @@ defmodule HoneydewEctoNotifyQueue.Job do
     field :abandoned_at, :utc_datetime_usec
     field :nacked_until, :utc_datetime_usec
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(%__MODULE__{} = job, attrs) do

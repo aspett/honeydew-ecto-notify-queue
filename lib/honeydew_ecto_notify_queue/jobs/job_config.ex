@@ -11,7 +11,7 @@ defmodule HoneydewEctoNotifyQueue.JobConfig do
     field :key, :string
     field :value, :string
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(%__MODULE__{} = config, attrs) do
