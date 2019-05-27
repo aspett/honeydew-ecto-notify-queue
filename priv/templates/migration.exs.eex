@@ -8,12 +8,12 @@ defmodule <%= module_prefix %>.Repo.Migrations.CreateHoneydewEctoNotifyTables do
       add :function, :string
       add :arguments, :jsonb
       add :failure_state, :jsonb
-      add :reserved_at, :naive_datetime
-      add :nacked_until, :naive_datetime
-      add :acked_at, :naive_datetime
-      add :abandoned_at, :naive_datetime
+      add :reserved_at, :utc_datetime_usec
+      add :nacked_until, :utc_datetime_usec
+      add :acked_at, :utc_datetime_usec
+      add :abandoned_at, :utc_datetime_usec
 
-      timestamps()
+      timestamps(type: :utc_datetime_usec)
     end
 
     create index(:jobs, [:reserved_at, :acked_at, :nacked_until], using: :btree)
@@ -25,7 +25,7 @@ defmodule <%= module_prefix %>.Repo.Migrations.CreateHoneydewEctoNotifyTables do
       add :key, :string, null: false
       add :value, :string, null: false
 
-      timestamps()
+      timestamps(type: :utc_datetime_usec)
     end
 
     create unique_index(:job_configs, [:key], using: :btree)

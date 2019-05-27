@@ -34,17 +34,22 @@ defmodule HoneydewEctoNotifyQueueIntegrationTest do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
     Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
 
-    queue = :"#{:erlang.monotonic_time}_#{:erlang.unique_integer}"
+    queue = :"#{:erlang.monotonic_time()}_#{:erlang.unique_integer()}"
 
-    spec = Honeydew.queue_spec(queue,
-      queue: {HoneydewEctoNotifyQueue, [
-                 repo: HoneydewEctoNotifyQueue.Repo,
-                 max_job_time: 3_600, # seconds
-                 retry_seconds: 15, # seconds,
-                 notifier: Notifier
-               ]},
-      failure_mode: {Honeydew.FailureMode.Retry, times: 3}
-    )
+    spec =
+      Honeydew.queue_spec(queue,
+        queue:
+          {HoneydewEctoNotifyQueue,
+           [
+             repo: HoneydewEctoNotifyQueue.Repo,
+             # seconds
+             max_job_time: 3_600,
+             # seconds,
+             retry_seconds: 15,
+             notifier: Notifier
+           ]},
+        failure_mode: {Honeydew.FailureMode.Retry, times: 3}
+      )
 
     {_queue, {queue_module, startfn, args}, restart, timeout, type, _module} = spec
 

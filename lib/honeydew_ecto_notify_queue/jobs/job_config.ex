@@ -8,10 +8,10 @@ defmodule HoneydewEctoNotifyQueue.JobConfig do
 
   @primary_key {:id, :binary_id, autogenerate: true}
   schema "job_configs" do
-    field(:key, :string)
-    field(:value, :string)
+    field :key, :string
+    field :value, :string
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(%__MODULE__{} = config, attrs) do

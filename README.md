@@ -73,26 +73,36 @@ Note: You should read [how to install honeydew here first](https://github.com/ko
 This queue takes some additional options. An example below,
 
 ```elixir
-import Supervisor.Spec
-
 def background_job_processes do
   [
     notifier_process(),
-    Honeydew.queue_spec(:process, # queue_name
-      queue: {HoneydewEctoNotifyQueue, [
-                  repo: YourApp.Repo, # your app's Repo module
-                  max_job_time: 3_600, # seconds
-                  retry_seconds: 15, # seconds,
-                  notifier: YourApp.Notifier # this should match the `name:` in `notifier_process` below
-                ]},
-      failure_mode: {Honeydew.FailureMode.Retry, times: 3}
-    ),
-    Honeydew.worker_spec(:process, YourApp.Worker, num: 1)
+    {
+      Honeydew.Queues,
+      [
+        :process, # queue name
+        queue: {
+          HoneydewEctoNotifyQueue, [
+            repo: YourApp.Repo,
+            max_job_time: 3_600, # seconds
+            retry_seconds: 15, # seconds,
+            notifier: YourApp.Notifier # this should match the `name` in `notifier_process` below
+          ]
+        },
+        failure_mode: {Honeydew.FailureMode.Retry, times: 3}
+      ]
+    },
+    {
+      Honeydew.Workers,
+      [:process, YourApp.Workers.ProcessWorker, num: 1]
+    }
   ]
 end
 
 def notifier_process do
-  worker(Postgrex.Notifications, [YourApp.Repo.config() ++ [name: YourApp.Notifier]])
+  %{
+    id: Postgrex.Notifications,
+    start: {Postgrex.Notifications, :start_link, [YourApp.Repo.config() ++ [name: YourApp.Notifier]]}
+  }
 end
 
 def start(_type, _args) do

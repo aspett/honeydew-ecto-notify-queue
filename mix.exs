@@ -38,22 +38,26 @@ defmodule HoneydewEctoNotifyQueue.MixProject do
       {:postgrex, "~> 0.14"},
       {:poison, "~> 3.1"},
       {:honeydew, "~> 1.1.5"},
-      {:jason, "~> 1.1"},
+      {:jason, "~> 1.1"}
     ]
   end
 
   defp package do
-    [maintainers: ["Andrew Pett"],
-     licenses: ["MIT"],
-     links: %{"GitHub": "https://github.com/aspett/honeydew-ecto-notify-queue"}]
+    [
+      maintainers: ["Andrew Pett"],
+      licenses: ["MIT"],
+      links: %{GitHub: "https://github.com/aspett/honeydew-ecto-notify-queue"}
+    ]
   end
 
   defp docs do
-    [extras: ["README.md"],
-     source_url: "https://github.com/aspett/honeydew-ecto-notify-queue",
-     assets: "assets",
-     main: "readme",
-     source_ref: @version]
+    [
+      extras: ["README.md"],
+      source_url: "https://github.com/aspett/honeydew-ecto-notify-queue",
+      assets: "assets",
+      main: "readme",
+      source_ref: @version
+    ]
   end
 
   defp aliases do
