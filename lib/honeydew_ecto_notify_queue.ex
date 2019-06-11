@@ -350,19 +350,18 @@ defmodule HoneydewEctoNotifyQueue do
     |> Honeydew.Job.from_record()
   end
 
-  defp refresh_config(state) do
+  @spec refresh_config(%QState{}) :: :ok | {:error, any()}
+  defp refresh_config(%QState{repo: repo, queue_name: queue_name} = state) do
     with {:ok, config} <-
-           HoneydewEctoNotifyQueue.Config.get_config(state.repo, JobConfig.suspended_key()) do
-      suspended = config.value == "true"
+      HoneydewEctoNotifyQueue.Config.get_config(repo, JobConfig.suspended_key(queue_name)) do
+      suspended = String.to_existing_atom(config.value)
 
-      case suspended do
-        true ->
-          debug_log("Synchronised queue status to suspended")
-          Honeydew.suspend(state.queue_name)
-
-        false ->
-          debug_log("Synchronised queue status to resumed")
-          Honeydew.resume(state.queue_name)
+      if suspended do
+        debug_log("Synchronised queue status to suspended")
+        Honeydew.suspend(queue_name)
+      else
+        debug_log("Synchronised queue status to resumed")
+        Honeydew.resume(queue_name)
       end
 
       Map.put(state, :database_suspended, suspended)

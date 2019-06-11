@@ -34,7 +34,7 @@ defmodule HoneydewEctoNotifyQueueIntegrationTest do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
     Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
 
-    queue = :"#{:erlang.monotonic_time()}_#{:erlang.unique_integer()}"
+    queue = :my_queue
 
     spec =
       Honeydew.queue_spec(queue,
