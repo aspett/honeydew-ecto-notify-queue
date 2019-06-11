@@ -71,7 +71,7 @@ You will need to populate the `job_configs` table with the 'suspended' value you
 ```
 execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'suspended', false, now(), now())"
 
-// or, if you have multiple queues and want to be able to suspend and resume them individially
+// or, if you have multiple queues and want to be able to suspend and resume them individually
 
 execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'my_first_queue_suspended', false, now(), now())"
 execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'my_second_queue_suspended', false, now(), now())"
