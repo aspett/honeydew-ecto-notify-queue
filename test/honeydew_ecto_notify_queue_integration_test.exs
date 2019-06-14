@@ -37,17 +37,20 @@ defmodule HoneydewEctoNotifyQueueIntegrationTest do
     queue = :my_queue
 
     spec =
-      Honeydew.queue_spec(queue,
-        queue:
-          {HoneydewEctoNotifyQueue,
-           [
-             repo: HoneydewEctoNotifyQueue.Repo,
-             # seconds
-             max_job_time: 3_600,
-             # seconds,
-             retry_seconds: 15,
-             notifier: Notifier
-           ]},
+      Honeydew.queue_spec(
+        queue,
+        queue: {
+          HoneydewEctoNotifyQueue,
+          [
+            repo: HoneydewEctoNotifyQueue.Repo,
+            # seconds
+            max_job_time: 3_600,
+            # seconds,
+            retry_seconds: 15,
+            notifier: Notifier,
+            per_queue_suspension: true
+          ]
+        },
         failure_mode: {Honeydew.FailureMode.Retry, times: 3}
       )
 

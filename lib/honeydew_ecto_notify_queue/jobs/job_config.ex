@@ -20,5 +20,7 @@ defmodule HoneydewEctoNotifyQueue.JobConfig do
     |> validate_required([:key, :value])
   end
 
-  def suspended_key(queue_name), do: "#{queue_name}_suspended"
+  @spec suspended_key(String.t(), boolean()) :: String.t()
+  def suspended_key(_, false), do: "suspended"
+  def suspended_key(queue_name, true), do: "#{queue_name}_suspended"
 end

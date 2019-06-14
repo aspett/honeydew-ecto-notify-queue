@@ -29,36 +29,43 @@ defmodule HoneydewEctoNotifyQueue do
       :config_notification_ref,
       :jobs_notification_ref,
       :database_suspended,
-      :quiet_locking_errors
+      quiet_locking_errors: false,
+      per_queue_suspension: false
     ]
   end
 
   @impl true
-  def init(
-        queue_name,
-        [
-          repo: repo,
-          max_job_time: max_job_time,
-          retry_seconds: retry_seconds,
-          notifier: notifier
-        ] = opts
-      ) do
+  @spec init(String.t(), list()) :: {:ok, %QState{}}
+  def init(queue_name, opts) when is_list(opts) do
+    allowed_opts_map =
+      opts
+      |> Enum.reduce(%{}, fn {key, value}, acc -> Map.put(acc, key, value) end)
+      |> Map.take([
+        :repo,
+        :max_job_time,
+        :retry_seconds,
+        :notifier,
+        :quiet_locking_errors,
+        :per_queue_suspension
+      ])
+
+    init(queue_name, allowed_opts_map)
+  end
+
+  @spec init(String.t(), map()) :: {:ok, %QState{}}
+  def init(queue_name, %{notifier: notifier} = opts) do
     {:ok, config_notification_ref} = start_config_notifier(notifier)
     {:ok, jobs_notification_ref} = start_jobs_notifier(notifier)
 
-    quiet_locking_errors = Keyword.get(opts, :quiet_locking_errors, true)
-
-    state = %QState{
-      repo: repo,
-      queue_name: queue_name,
-      max_job_time: max_job_time,
-      retry_seconds: retry_seconds,
-      config_notification_ref: config_notification_ref,
-      jobs_notification_ref: jobs_notification_ref,
-      quiet_locking_errors: quiet_locking_errors
-    }
-
-    state = refresh_config(state)
+    state =
+      %QState{}
+      |> Map.merge(opts)
+      |> Map.merge(%{
+        queue_name: queue_name,
+        config_notification_ref: config_notification_ref,
+        jobs_notification_ref: jobs_notification_ref
+      })
+      |> refresh_config()
 
     {:ok, state}
   end
@@ -351,9 +358,9 @@ defmodule HoneydewEctoNotifyQueue do
   end
 
   @spec refresh_config(%QState{}) :: :ok | {:error, any()}
-  defp refresh_config(%QState{repo: repo, queue_name: queue_name} = state) do
-    with {:ok, config} <-
-      HoneydewEctoNotifyQueue.Config.get_config(repo, JobConfig.suspended_key(queue_name)) do
+  defp refresh_config(%QState{repo: repo, queue_name: queue_name, per_queue_suspension: per_queue_suspension} = state) do
+    with suspended_key <- JobConfig.suspended_key(queue_name, per_queue_suspension),
+      {:ok, config} <- HoneydewEctoNotifyQueue.Config.get_config(repo, suspended_key) do
       suspended = String.to_existing_atom(config.value)
 
       if suspended do
