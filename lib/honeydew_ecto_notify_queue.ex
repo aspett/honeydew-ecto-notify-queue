@@ -39,7 +39,7 @@ defmodule HoneydewEctoNotifyQueue do
   def init(queue_name, opts) when is_list(opts) do
     allowed_opts_map =
       opts
-      |> Enum.reduce(%{}, fn {key, value}, acc -> Map.put(acc, key, value) end)
+      |> Map.new()      
       |> Map.take([
         :repo,
         :max_job_time,
@@ -49,11 +49,13 @@ defmodule HoneydewEctoNotifyQueue do
         :per_queue_suspension
       ])
 
-    init(queue_name, allowed_opts_map)
+    %{repo: _, max_job_time: _, retry_seconds: _, notifier: _} = allowed_opts_map
+
+    do_init(queue_name, allowed_opts_map)
   end
 
-  @spec init(String.t(), map()) :: {:ok, %QState{}}
-  def init(queue_name, %{notifier: notifier} = opts) do
+  @spec do_init(String.t(), map()) :: {:ok, %QState{}}
+  defp do_init(queue_name, %{notifier: notifier} = opts) do
     {:ok, config_notification_ref} = start_config_notifier(notifier)
     {:ok, jobs_notification_ref} = start_jobs_notifier(notifier)
 
