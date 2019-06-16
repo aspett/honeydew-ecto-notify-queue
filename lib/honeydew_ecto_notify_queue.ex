@@ -29,7 +29,7 @@ defmodule HoneydewEctoNotifyQueue do
       :config_notification_ref,
       :jobs_notification_ref,
       :database_suspended,
-      quiet_locking_errors: false,
+      quiet_locking_errors: true,
       per_queue_suspension: false
     ]
   end
@@ -39,7 +39,7 @@ defmodule HoneydewEctoNotifyQueue do
   def init(queue_name, opts) when is_list(opts) do
     allowed_opts_map =
       opts
-      |> Map.new()      
+      |> Map.new()
       |> Map.take([
         :repo,
         :max_job_time,
