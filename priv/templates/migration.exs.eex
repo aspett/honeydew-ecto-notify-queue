@@ -31,7 +31,9 @@ defmodule <%= module_prefix %>.Repo.Migrations.CreateHoneydewEctoNotifyTables do
     create unique_index(:job_configs, [:key], using: :btree)
 
     execute "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""
-    execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'suspended', false, now(), now())"
+
+    # Uncomment the following line or replace with your own custom suspended key
+    # execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'suspended', false, now(), now())"
 
     execute """
       CREATE FUNCTION f_notify_config_change()

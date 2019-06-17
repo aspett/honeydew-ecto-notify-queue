@@ -66,6 +66,18 @@ You can generate a migration to set up the required db tables with
 $ mix honeydew_ecto_notify_queue.db.gen.migration
 ```
 
+You will need to populate the `job_configs` table with the 'suspended' value yourself, which you can do by editing the migration generated in the previous step. For example:
+
+```
+execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'suspended', false, now(), now())"
+
+// or, if you have multiple queues and want to be able to suspend and resume them individually
+
+execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'my_first_queue_suspended', false, now(), now())"
+execute "INSERT INTO job_configs VALUES (uuid_generate_v4(), 'my_second_queue_suspended', false, now(), now())"
+```
+
+
 ### Starting the queue
 
 Note: You should read [how to install honeydew here first](https://github.com/koudelka/honeydew)
@@ -109,7 +121,7 @@ def start(_type, _args) do
   children = [
     # ... The rest of your app's supervision tree
   ] ++ background_job_processes
-  
+
   Supervisor.start_link(children, opts)
 end
 ```
@@ -119,6 +131,10 @@ end
 ```bash
 $ MIX_ENV=test mix do ecto.create, ecto.migrate
 $ mix test
+
+or
+
+$ docker-compose up test
 ```
 
 ## Custom job configuration persistence
@@ -130,5 +146,5 @@ across instances.
 
 An example of this may be the disabling of automatic queuing of a job when an API is hit.
 
-You can see an example of how to listen for configuration changes in 
+You can see an example of how to listen for configuration changes in
 `examples/configuration_listener.ex`
